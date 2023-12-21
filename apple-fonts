@@ -1,0 +1,75 @@
+#!/bin/bash
+
+WHERE=${1:-~/.local/share/fonts}
+TEMP_DIR=$(mktemp -d)
+DOWNLOAD_WEBSITE="https://devimages-cdn.apple.com/design/resources/download/"
+
+# fonts to download
+FONTS="SF-Pro.dmg SF-Compact.dmg SF-Mono.dmg SF-Arabic.dmg NY.dmg"
+
+# the font directory you get when extracting a font
+FONT_DIRECTORIES=("SFProFonts" "SFCompactFonts" "SFMonoFonts" "SFArabicFonts" "NYFonts")
+
+# the ACTUAL font after cd'ing to the dir (from above)
+FONT_FILES=("SF Pro Fonts.pkg" "SF Compact Fonts.pkg" "SF Mono Fonts.pkg" "SF Arabic Fonts.pkg" "NY Fonts.pkg")
+
+# confirmation
+echo "Fonts will be extracted to: $WHERE, continue?"
+echo "RE-RUN AS ROOT IF NOT PLACING TO YOUR LOCAL DIRECTORY!!!"
+echo "Enter to continue, n to abort."
+
+read -r answer
+
+if [ "$answer" == "n" ]; then
+    echo "You can change the path by including a custom path like: ./apple-fonts FULL_PATH"
+    exit 0
+fi
+
+# making TTF and OTF dirs
+mkdir $WHERE/{TTF,OTF}
+
+# downloading
+cd $TEMP_DIR
+mkdir $TEMP_DIR/fonts
+
+echo "Downloading"
+for FONT in $FONTS;
+do
+    echo " $FONT..." && wget -q $DOWNLOAD_WEBSITE$FONT || exit 1
+done
+
+# extracting. 1
+echo "Extracting"
+for FONT in $FONTS;
+do
+    echo " $FONT..."
+    7z x $FONT -bso0 -bsp0
+done
+
+# extracting. 2
+for ((i=0; i<${#FONT_DIRECTORIES[@]}; i++));
+do
+    cd ${FONT_DIRECTORIES[i]}
+
+    echo " ${FONT_FILES[i]}..."
+    7z x "${FONT_FILES[i]}" -bso0 -bsp0
+
+    echo "  Payload~..."
+    7z x "Payload~" -bso0 -bsp0
+
+    mv Library/Fonts/* $TEMP_DIR/fonts
+    cd $TEMP_DIR
+done
+
+# moving to path
+echo "Moving fonts to $WHERE..."
+
+mv $TEMP_DIR/fonts/*.ttf $WHERE/TTF
+mv $TEMP_DIR/fonts/*.otf $WHERE/OTF
+
+ls -t $WHERE/{TTF,OTF}
+
+echo "If you get \"Permission denied\", it means you should have run as root"
+echo "If you get errors related to space, it means your /tmp directory is full"
+echo "  Simply run this: \"sudo rm -r /tmp/tmp.*\" (WITHOUT the quotes.)"
+echo "  assuming your temporary directory is /tmp"
